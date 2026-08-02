@@ -45,10 +45,9 @@ SEEDVR2_NODE_CLASSES = (
     'TTP_Image_Assy',
     'easy imageScaleToNormPixels',
     'Get Image Size',
-    '数学运算_孤海',
+    'SimpleMath+',
     'ImageResize+',
     'GetImageSize+',
-    'FastFilmGrain',
 )
 SEEDVR2_REQUIRED_NODES = (
     'SeedVR2LoadVAEModel',
@@ -72,14 +71,12 @@ SEEDVR2_NODE_PACKS = {
                                     'https://github.com/yolain/ComfyUI-Easy-Use'),
     'Get Image Size': ('masquerade-nodes-comfyui',
                        'https://github.com/BadCafeCode/masquerade-nodes-comfyui'),
-    '数学运算_孤海': ('Goohaitools-comfyui',
-                    'https://github.com/goohai/Goohaitools-comfyui'),
+    'SimpleMath+': ('comfyui_essentials',
+                    'https://github.com/cubiq/ComfyUI_essentials'),
     'ImageResize+': ('comfyui_essentials',
                      'https://github.com/cubiq/ComfyUI_essentials'),
     'GetImageSize+': ('comfyui_essentials',
                       'https://github.com/cubiq/ComfyUI_essentials'),
-    'FastFilmGrain': ('comfyui-vrgamedevgirl',
-                      'https://github.com/vrgamegirl19/comfyui-vrgamedevgirl'),
 }
 
 _MODEL_SUFFIXES = ('.safetensors', '.gguf', '.sft')

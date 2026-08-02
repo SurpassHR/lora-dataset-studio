@@ -128,13 +128,10 @@ DECLARED_THIRD_PARTY_NODES = {
     'easy imageScaleToNormPixels': 'ComfyUI-Easy-Use',
     # masquerade-nodes-comfyui
     'Get Image Size': 'masquerade-nodes-comfyui',
-    # Goohaitools-comfyui
-    '数学运算_孤海': 'Goohaitools-comfyui',
     # comfyui_essentials
+    'SimpleMath+': 'comfyui_essentials',
     'ImageResize+': 'comfyui_essentials',
     'GetImageSize+': 'comfyui_essentials',
-    # comfyui-vrgamedevgirl
-    'FastFilmGrain': 'comfyui-vrgamedevgirl',
 }
 
 # The Klein lane is the one that broke, and the one the app leans on hardest
@@ -178,8 +175,8 @@ def test_every_pinned_enum_value_exists_in_a_vanilla_comfyui(name, graph):
     pack_owned = {
         'SeedVR2LoadVAEModel', 'SeedVR2LoadDiTModel', 'SeedVR2VideoUpscaler',
         'TTP_Image_Tile_Batch', 'TTP_Tile_image_size', 'TTP_Image_Assy',
-        'easy imageScaleToNormPixels', 'Get Image Size', '数学运算_孤海',
-        'ImageResize+', 'GetImageSize+', 'FastFilmGrain',
+        'easy imageScaleToNormPixels', 'Get Image Size', 'SimpleMath+',
+        'ImageResize+', 'GetImageSize+',
     }
     for node_id, node in _nodes(graph):
         if node['class_type'] in pack_owned:

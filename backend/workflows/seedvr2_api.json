@@ -1,219 +1,224 @@
 {
-  "511": {
-    "class_type": "LoadImage",
-    "inputs": {
-      "image": "__INPUT_IMAGE__"
-    }
-  },
-  "521": {
-    "class_type": "ImageScaleBy",
-    "inputs": {
-      "upscale_method": "lanczos",
-      "scale_by": 2,
-      "image": [
-        "511",
-        0
-      ]
-    }
-  },
-  "522": {
-    "class_type": "easy imageScaleToNormPixels",
-    "inputs": {
-      "upscale_method": "lanczos",
-      "scale_by": 1,
-      "image": [
-        "521",
-        0
-      ]
-    }
-  },
-  "517": {
-    "class_type": "Get Image Size",
-    "inputs": {
-      "image": [
-        "522",
-        0
-      ]
-    }
-  },
-  "518": {
-    "class_type": "数学运算_孤海",
-    "inputs": {
-      "值1": "a/1024",
-      "值2": "b/1024",
-      "a": [
-        "517",
-        0
-      ],
-      "b": [
-        "517",
-        1
-      ]
-    }
-  },
-  "529": {
-    "class_type": "TTP_Tile_image_size",
-    "inputs": {
-      "image": [
-        "522",
-        0
-      ],
-      "width_factor": [
-        "518",
-        0
-      ],
-      "height_factor": [
-        "518",
-        2
-      ],
-      "overlap_rate": 0.1
-    }
-  },
-  "516": {
-    "class_type": "TTP_Image_Tile_Batch",
-    "inputs": {
-      "image": [
-        "522",
-        0
-      ],
-      "tile_width": [
-        "529",
-        0
-      ],
-      "tile_height": [
-        "529",
-        1
-      ]
-    }
-  },
-  "515": {
-    "class_type": "SeedVR2LoadVAEModel",
-    "inputs": {
-      "model": "__VAE_MODEL__",
-      "device": "cuda:0",
-      "encode_tiled": true,
-      "encode_tile_size": 1024,
-      "encode_tile_overlap": 128,
-      "decode_tiled": true,
-      "decode_tile_size": 1024,
-      "decode_tile_overlap": 128,
-      "tile_debug": "false",
-      "offload_device": "cpu",
-      "cache_model": false
-    }
-  },
-  "523": {
-    "class_type": "SeedVR2LoadDiTModel",
-    "inputs": {
-      "model": "__DIT_MODEL__",
-      "device": "cuda:0",
-      "blocks_to_swap": 0,
-      "swap_io_components": false,
-      "offload_device": "cpu",
-      "cache_model": false,
-      "attention_mode": "sdpa"
-    }
-  },
-  "513": {
-    "class_type": "ImageScaleBy",
-    "inputs": {
-      "upscale_method": "lanczos",
-      "scale_by": 0.25,
-      "image": [
-        "516",
-        0
-      ]
-    }
-  },
-  "519": {
-    "class_type": "SeedVR2VideoUpscaler",
-    "inputs": {
-      "image": [
-        "513",
-        0
-      ],
-      "dit": [
-        "523",
-        0
-      ],
-      "vae": [
-        "515",
-        0
-      ],
-      "seed": 2461588580,
-      "resolution": 1080,
-      "max_resolution": 0,
-      "batch_size": 1,
-      "uniform_batch_size": false,
-      "temporal_overlap": 0,
-      "prepend_frames": 0,
-      "color_correction": "wavelet",
-      "input_noise_scale": 0.0,
-      "latent_noise_scale": 0.0,
-      "offload_device": "cpu",
-      "enable_debug": false
-    }
-  },
-  "528": {
-    "class_type": "GetImageSize+",
-    "inputs": {
-      "image": [
-        "516",
-        0
-      ]
-    }
-  },
-  "525": {
-    "class_type": "ImageResize+",
-    "inputs": {
-      "image": [
-        "519",
-        0
-      ],
-      "width": [
-        "528",
-        0
-      ],
-      "height": [
-        "528",
-        1
-      ],
-      "interpolation": "lanczos",
-      "method": "stretch",
-      "condition": "always",
-      "multiple_of": 0
-    }
-  },
-  "524": {
-    "class_type": "TTP_Image_Assy",
-    "inputs": {
-      "tiles": [
-        "525",
-        0
-      ],
-      "positions": [
-        "516",
-        1
-      ],
-      "original_size": [
-        "516",
-        2
-      ],
-      "grid_size": [
-        "516",
-        3
-      ],
-      "padding": 64
-    }
-  },
-  "900": {
-    "class_type": "SaveImage",
-    "inputs": {
-      "filename_prefix": "__PREFIX__",
-      "images": [
-        "524",
-        0
-      ]
-    }
+ "511": {
+  "class_type": "LoadImage",
+  "inputs": {
+   "image": "__INPUT_IMAGE__"
   }
+ },
+ "521": {
+  "class_type": "ImageScaleBy",
+  "inputs": {
+   "upscale_method": "lanczos",
+   "scale_by": 2,
+   "image": [
+    "511",
+    0
+   ]
+  }
+ },
+ "522": {
+  "class_type": "easy imageScaleToNormPixels",
+  "inputs": {
+   "upscale_method": "lanczos",
+   "scale_by": 1,
+   "image": [
+    "521",
+    0
+   ]
+  }
+ },
+ "517": {
+  "class_type": "Get Image Size",
+  "inputs": {
+   "image": [
+    "522",
+    0
+   ]
+  }
+ },
+ "529": {
+  "class_type": "TTP_Tile_image_size",
+  "inputs": {
+   "image": [
+    "522",
+    0
+   ],
+   "width_factor": [
+    "549",
+    0
+   ],
+   "height_factor": [
+    "550",
+    0
+   ],
+   "overlap_rate": 0.1
+  }
+ },
+ "516": {
+  "class_type": "TTP_Image_Tile_Batch",
+  "inputs": {
+   "image": [
+    "522",
+    0
+   ],
+   "tile_width": [
+    "529",
+    0
+   ],
+   "tile_height": [
+    "529",
+    1
+   ]
+  }
+ },
+ "515": {
+  "class_type": "SeedVR2LoadVAEModel",
+  "inputs": {
+   "model": "__VAE_MODEL__",
+   "device": "cuda:0",
+   "encode_tiled": true,
+   "encode_tile_size": 1024,
+   "encode_tile_overlap": 128,
+   "decode_tiled": true,
+   "decode_tile_size": 1024,
+   "decode_tile_overlap": 128,
+   "tile_debug": "false",
+   "offload_device": "cpu",
+   "cache_model": false
+  }
+ },
+ "523": {
+  "class_type": "SeedVR2LoadDiTModel",
+  "inputs": {
+   "model": "__DIT_MODEL__",
+   "device": "cuda:0",
+   "blocks_to_swap": 0,
+   "swap_io_components": false,
+   "offload_device": "cpu",
+   "cache_model": false,
+   "attention_mode": "sdpa"
+  }
+ },
+ "513": {
+  "class_type": "ImageScaleBy",
+  "inputs": {
+   "upscale_method": "lanczos",
+   "scale_by": 0.25,
+   "image": [
+    "516",
+    0
+   ]
+  }
+ },
+ "519": {
+  "class_type": "SeedVR2VideoUpscaler",
+  "inputs": {
+   "image": [
+    "513",
+    0
+   ],
+   "dit": [
+    "523",
+    0
+   ],
+   "vae": [
+    "515",
+    0
+   ],
+   "seed": 2461588580,
+   "resolution": 1080,
+   "max_resolution": 0,
+   "batch_size": 1,
+   "uniform_batch_size": false,
+   "temporal_overlap": 0,
+   "prepend_frames": 0,
+   "color_correction": "wavelet",
+   "input_noise_scale": 0.0,
+   "latent_noise_scale": 0.0,
+   "offload_device": "cpu",
+   "enable_debug": false
+  }
+ },
+ "528": {
+  "class_type": "GetImageSize+",
+  "inputs": {
+   "image": [
+    "516",
+    0
+   ]
+  }
+ },
+ "525": {
+  "class_type": "ImageResize+",
+  "inputs": {
+   "image": [
+    "519",
+    0
+   ],
+   "width": [
+    "528",
+    0
+   ],
+   "height": [
+    "528",
+    1
+   ],
+   "interpolation": "lanczos",
+   "method": "stretch",
+   "condition": "always",
+   "multiple_of": 0
+  }
+ },
+ "524": {
+  "class_type": "TTP_Image_Assy",
+  "inputs": {
+   "tiles": [
+    "525",
+    0
+   ],
+   "positions": [
+    "516",
+    1
+   ],
+   "original_size": [
+    "516",
+    2
+   ],
+   "grid_size": [
+    "516",
+    3
+   ],
+   "padding": 64
+  }
+ },
+ "900": {
+  "class_type": "SaveImage",
+  "inputs": {
+   "filename_prefix": "__PREFIX__",
+   "images": [
+    "524",
+    0
+   ]
+  }
+ },
+ "549": {
+  "class_type": "SimpleMath+",
+  "inputs": {
+   "a": [
+    "517",
+    0
+   ],
+   "value": "a/1024"
+  }
+ },
+ "550": {
+  "class_type": "SimpleMath+",
+  "inputs": {
+   "a": [
+    "517",
+    1
+   ],
+   "value": "a/1024"
+  }
+ }
 }
