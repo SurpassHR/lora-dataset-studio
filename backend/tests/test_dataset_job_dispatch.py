@@ -68,10 +68,10 @@ def test_the_declared_set_matches_what_the_engines_actually_stamp(app):
     """The set is only useful if it stays in step with the enqueue side, so read
     the stamps from the helpers themselves rather than trusting a literal."""
     from app import job_queue
-    from app.services import klein_edit_helper, krea_edit_helper  # noqa: F401
+    from app.services import klein_edit_helper, krea_edit_helper, seedvr2_upscale_helper  # noqa: F401
     import inspect
     stamped = set()
-    for mod in (klein_edit_helper, krea_edit_helper):
+    for mod in (klein_edit_helper, krea_edit_helper, seedvr2_upscale_helper):
         src = inspect.getsource(mod)
         for name in job_queue.DATASET_IMAGE_JOB_NAMES:
             if f"'{name}'" in src or f'"{name}"' in src:

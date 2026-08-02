@@ -544,6 +544,16 @@ export function useDataset() {
     return d;
   }, [currentId, refresh, toast]);
 
+  // Bulk SeedVR2 超分辨率：ONE call that starts a SERVER job (background).
+  const seedvr2Batch = useCallback(async (imageIds) => {
+    const ids = (imageIds || []).map((v) => Number(v)).filter(Number.isInteger);
+    if (!ids.length) return { ok: false, error: 'nothing selected' };
+    const d = await postJson(`/api/dataset/${currentId}/upscale/batch`, { image_ids: ids });
+    if (!d.ok) toast.error(d.error || 'Could not start the upscale batch');
+    await refresh();
+    return d;
+  }, [currentId, refresh, toast]);
+
   // `expected` = how many images the caller counted as classifiable. It turns the
   // silent outcome into a diagnosis: the server answers ok/classified=0 when the
   // vision backend never replied (Ollama down), and 0 on its own reads as success.
@@ -1533,7 +1543,7 @@ export function useDataset() {
            analyzing: analyzingLive, watermarking: watermarkingLive, activity,
            nonces, mirroringIds, refNonce, scoringFaceIds, recaptioningIds, create, open,
            deleteDataset, updateSettings, setCurrentId, setRef, addExtraRef, removeExtraRef,
-           generate, importFiles, scrapeImport, resolveSmallImageRescue, improveImage, reimproveImage, improveBatch, classify, caption, recaption, recaptionImages,
+           generate, importFiles, scrapeImport, resolveSmallImageRescue, improveImage, reimproveImage, improveBatch, seedvr2Batch, classify, caption, recaption, recaptionImages,
            setStatus, setCaption, mirrorImage, rotateImage, crop, cropRef, cropExtraRef, recropRefAuto, editReference, retryReferenceEdit, canRetryReferenceEdit, keepEditedReference, discardEditedReference, setDatasetTrainType, setDatasetFidelity, deleteImage, batchImages, replaceCaptions, writeCaptionFiles, openDatasetFolder, cancelPending, cancelCaption, regenerate, analyzeFaces, scoreFace,
            findWatermarks, cleanWatermarks, cleanWatermarkImages, restoreWatermarkImage, dismissWatermarks, saveWatermarkRegions,
            purgeUnused, exportZip, exportBackup, exportZipFor, exportBackupFor, importBackup, importDatasetZip, importDatasetFolder,

@@ -1382,6 +1382,41 @@ def dataset_improve_batch(dataset_id):
     return jsonify({'ok': True, **result})
 
 
+@bp.post('/dataset/<int:dataset_id>/upscale/batch')
+def dataset_upscale_batch(dataset_id):
+    """Start the SeedVR2 super-resolution batch over a selection."""
+    data = request.get_json(silent=True) or {}
+    ids = data.get('image_ids')
+    if not isinstance(ids, list):
+        return jsonify({'error': 'image_ids must be a list'}), 400
+    gate = _require_no_stalled_comfyui()
+    if gate:
+        return gate
+    try:
+        result = svc.start_bulk_seedvr2_upscale(
+            current_app._get_current_object(), LOCAL_USER, dataset_id, ids)
+    except Exception as e:
+        from ..services.seedvr2_upscale_helper import SeedVR2ModelsMissing
+        if isinstance(e, SeedVR2ModelsMissing):
+            from ..services import seedvr2_upscale_helper as suh
+            missing = e.missing
+            missing_nodes = e.missing_nodes
+            parts = ['SeedVR2 upscale can\'t run yet: ']
+            if missing:
+                names = ', '.join(
+                    {'dit_model': 'DiT model', 'vae_model': 'VAE model'}.get(m, m) for m in missing)
+                parts.append(f'{names} missing. Configure the model paths in Settings ▸ Engines › SeedVR2, '
+                             'or confirm the model files are installed in your ComfyUI.')
+            if missing_nodes:
+                hints = suh.seedvr2_node_hints(missing_nodes)
+                for h in hints:
+                    parts.append(f'Custom node {h["class_type"]} is missing — install the '
+                                 f'{h["pack"]} pack ({h["url"]}), then restart ComfyUI.')
+            return jsonify({'ok': False, 'error': ' '.join(parts)}), 409
+        return _map_error(e)
+    return jsonify({'ok': True, **result})
+
+
 @bp.post('/dataset/image/<int:image_id>/regenerate')
 def dataset_image_regenerate(image_id):
     data = request.get_json(silent=True) or {}

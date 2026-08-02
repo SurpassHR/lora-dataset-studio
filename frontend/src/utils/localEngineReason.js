@@ -103,6 +103,19 @@ export function localEngineUnavailableReason(engine, caps, enabledEngines = null
       nodePackInstalled: comfy.krea_nodes_installed,
     });
   }
+  if (engine === 'seedvr2') {
+    if (engines.seedvr2) return null;
+    if (!comfy.reachable) return comfyuiDownReason(comfy);
+    const names = (comfy.seedvr2_missing || [])
+      .map((m) => ({ dit_model: 'DiT model', vae_model: 'VAE model' }[m] || m))
+      .join(' + ');
+    if (names) return `⚠ SeedVR2 ${names} missing — configure the models in Settings ▸ `
+      + 'Engines › SeedVR2, or install them into your ComfyUI';
+    if ((comfy.seedvr2_nodes_missing || []).length) {
+      return '⚠ SeedVR2 needs custom nodes your ComfyUI lacks — install the ';
+    }
+    return '⚠ SeedVR2 is not ready — open Setup ▸ ComfyUI and use Copy diagnostic';
+  }
   return null;
 }
 

@@ -74,7 +74,7 @@ test('dataset hook starts improvement, reports the preserved original, then refr
   assert.match(hook, /`\/api\/dataset\/image\/\$\{imageId\}\/improve`, \{\}/);
   assert.match(hook, /original stays intact while a separate 2 MP candidate is generated for validation/);
   assert.match(hook, /Could not start image improvement/);
-  assert.match(hook, /resolveSmallImageRescue, improveImage, reimproveImage, improveBatch, classify/);
+  assert.match(hook, /resolveSmallImageRescue, improveImage, reimproveImage, improveBatch, seedvr2Batch, classify/);
 });
 
 test('the bulk improvement is ONE call that starts a server job, not a per-image loop', () => {

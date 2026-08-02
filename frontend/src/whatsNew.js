@@ -48,6 +48,14 @@ import { SETUP_DEEP_LINK_STEPS } from './hooks/useSetupSteps.js';
 // Newest first. Prepend new waves at the top.
 export const WHATS_NEW = [
   {
+    id: '2026-08-02-settings-sidebar-subheadings',
+    date: '2026-08-02',
+    title: 'The Settings sidebar now shows each section’s cards — jump straight to the ones you need',
+    blurb:
+      'The Image engines section holds nine cards, and “API keys” and “Klein generation quality” were nine mouse-wheel scrolls apart. Hover any section in the Settings rail and its cards appear underneath it — API keys, Image models, Engines, every LoRA preset and prompt card — and the section you are in always shows its list. Click a card name and the page scrolls straight to it, with a brief outline so you can see exactly where you landed; a card in another section takes you there first. No more hunting a card by name.',
+    to: '/settings',
+  },
+  {
     id: '2026-08-02-dataset-upload-is-visible',
     date: '2026-08-02',
     title: 'You can now watch the dataset go up to the rented machine — and it stops billing if it does not',
@@ -92,6 +100,14 @@ export const WHATS_NEW = [
     title: 'A server that is still starting up no longer buries the app in error toasts',
     blurb:
       'Background checks — the progress polls, the setup re-check, the "is ComfyUI up yet?" watcher — already stayed quiet when they could not reach the server at all. They now stay just as quiet when the server answers badly: a container still booting replies "not ready" every few seconds, and that used to become one "Server error. Please try again later." toast per reply until it finished. The screens that depend on those checks still show what went wrong where it belongs, and the moment the server comes back you still get the single "Back online" line.',
+  },
+  {
+    id: '2026-08-02-seedvr2-super-resolution',
+    date: '2026-08-02',
+    title: 'Upscale images with the SeedVR2 engine on your own GPU',
+    blurb:
+      'SeedVR2 super-resolution — the third local ComfyUI engine — upscales the selected images right in the dataset grid (Bulk actions → 🖥 SeedVR2 upscale). It uses a Diffusion Transformer model through a tile-based pipeline, and the model/VAE dropdowns in Settings mirror exactly what your ComfyUI lists, so "Value not in list" errors are gone. The engine runs on your own GPU, queued in the background like the Klein improve batch.',
+    to: '/settings/engines',
   },
   {
     id: '2026-08-01-bank-image-ceiling-raised',

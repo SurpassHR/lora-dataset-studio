@@ -116,6 +116,25 @@ DECLARED_THIRD_PARTY_NODES = {
     'ConditioningKrea2Rebalance': 'comfyui-krea2edit',
     'Krea2EditModelPatch': 'comfyui-krea2edit',
     'Krea2EditGroundedEncode': 'comfyui-krea2edit',
+    # SeedVR2 super-resolution — from seedvr2_videoupscaler
+    'SeedVR2LoadVAEModel': 'seedvr2_videoupscaler',
+    'SeedVR2VideoUpscaler': 'seedvr2_videoupscaler',
+    'SeedVR2LoadDiTModel': 'seedvr2_videoupscaler',
+    # TTP tile toolset
+    'TTP_Image_Tile_Batch': 'Comfyui_TTP_Toolset',
+    'TTP_Tile_image_size': 'Comfyui_TTP_Toolset',
+    'TTP_Image_Assy': 'Comfyui_TTP_Toolset',
+    # ComfyUI-Easy-Use
+    'easy imageScaleToNormPixels': 'ComfyUI-Easy-Use',
+    # masquerade-nodes-comfyui
+    'Get Image Size': 'masquerade-nodes-comfyui',
+    # Goohaitools-comfyui
+    '数学运算_孤海': 'Goohaitools-comfyui',
+    # comfyui_essentials
+    'ImageResize+': 'comfyui_essentials',
+    'GetImageSize+': 'comfyui_essentials',
+    # comfyui-vrgamedevgirl
+    'FastFilmGrain': 'comfyui-vrgamedevgirl',
 }
 
 # The Klein lane is the one that broke, and the one the app leans on hardest
@@ -151,7 +170,20 @@ def test_every_pinned_enum_value_exists_in_a_vanilla_comfyui(name, graph):
     """The regression guard for the reported bug. `beta57` fails here loudly, with
     the reason, instead of reaching a user as ComfyUI's raw 400."""
     offenders = []
+    # Nodes whose widget enums are DEFINED BY THEIR OWN PACK, not a stock ComfyUI
+    # (seedvr2_videoupscaler's `device="cuda:0"` combo is generated at runtime
+    # from the user's GPU list, so no stock value list can contain it). These are
+    # fine to leave unchecked here: the pack's preflight gates them, and the list
+    # below is exactly the set of pack-owned nodes in our shipped graphs.
+    pack_owned = {
+        'SeedVR2LoadVAEModel', 'SeedVR2LoadDiTModel', 'SeedVR2VideoUpscaler',
+        'TTP_Image_Tile_Batch', 'TTP_Tile_image_size', 'TTP_Image_Assy',
+        'easy imageScaleToNormPixels', 'Get Image Size', '数学运算_孤海',
+        'ImageResize+', 'GetImageSize+', 'FastFilmGrain',
+    }
     for node_id, node in _nodes(graph):
+        if node['class_type'] in pack_owned:
+            continue
         for field, value in (node.get('inputs') or {}).items():
             allowed = CORE_ENUMS.get(field)
             if allowed is None or not isinstance(value, str) or value in allowed:
@@ -217,7 +249,7 @@ def test_the_klein_graphs_sample_the_way_the_rest_of_the_app_does():
 VANILLA_NODE_ALLOWLIST = frozenset({
     'BasicGuider', 'BasicScheduler', 'CFGGuider', 'CLIPLoader', 'CLIPTextEncode',
     'CheckpointLoaderSimple', 'EmptyFlux2LatentImage', 'EmptyLatentImage',
-    'EmptySD3LatentImage', 'GetImageSize', 'ImageScaleToTotalPixels', 'KSampler',
+    'EmptySD3LatentImage', 'GetImageSize', 'ImageScaleBy', 'ImageScaleToTotalPixels', 'KSampler',
     'KSamplerSelect', 'LatentUpscaleBy', 'LoadImage', 'LoraLoader',
     'LoraLoaderModelOnly', 'ModelSamplingFlux', 'PatchModelAddDownscale',
     'PreviewImage', 'PrimitiveInt', 'RandomNoise', 'ReferenceLatent',

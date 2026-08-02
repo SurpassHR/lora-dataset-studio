@@ -194,6 +194,43 @@ Two behaviours worth knowing before you build a dataset with it:
 
 Outfits and expressions are steered differently here than on the other engines: this model preserves anything it is not *positively* told to change, so the catalog's "a different outfit (not the one in the reference)" phrasing is rewritten at generation time into a concrete garment ("wearing a red knit sweater"), picked from the shot's own name — so outfits genuinely differ across the dataset while regenerating one shot reproduces its own.
 
+### SeedVR2 super-resolution (local)
+
+The third local ComfyUI engine. **SeedVR2** is a Diffusion Transformer based
+image/video upscaler that re-frames high-resolution input in a **tile-based**
+pipeline — it splits the image into overlapping tiles, upscales each with a
+DiT model, and reassembles them. It appears as **🖥 SeedVR2 upscale** in the
+dataset grid's **Bulk actions** toolbar: select images and run super-resolution
+in the background (like the Klein improve batch), creating new candidate rows
+for review while the originals stay untouched.
+
+It needs, inside your own ComfyUI:
+
+- the **seedvr2_videoupscaler** custom-node pack in `custom_nodes/`, then a
+  ComfyUI restart;
+- a **DiT model** (e.g. `seedvr2_ema_3b_fp8_e4m3fn.safetensors`) and a **VAE**
+  (`ema_vae_fp16.safetensors`) in `models/SEEDVR2/` (the plugin's own root) or
+  the standard `models/diffusion_models` / `models/vae` roots.
+
+The **DiT model** and **VAE model** dropdowns in Settings are populated straight
+from your running ComfyUI's `/object_info` — the exact model list the SeedVR2
+nodes themselves publish — so a value you pick there is always accepted.
+Leave them on **auto — detect** to find a model on disk automatically.
+
+Settings:
+
+- **DiT model** → `seedvr2.dit_model`. Blank (default) = auto-detect a SeedVR2
+  DiT build in ComfyUI's model roots or the plugin's `models/SEEDVR2/`. Set one
+  to pin it.
+- **VAE model** → `seedvr2.vae_model`. Blank = auto-detect.
+- **Target resolution** → `seedvr2.resolution`. Default **`1080`** — the short edge
+  of the output in pixels; the aspect ratio is preserved.
+- **Color correction** → `seedvr2.color_correction`. One of `lab` (default),
+  `wavelet`, `wavelet_adaptive`, `hsv`, `adain`, `none` — applied after upscaling.
+- **Batch size** → `seedvr2.batch_size`. Default `1`. Must follow the `4n+1`
+  pattern (`1`, `5`, `9`, `13`, …).
+- **Seed** → `seedvr2.seed`. Same input + same seed = reproducible output.
+
 ### Klein generation LoRA presets (optional)
 
 *Idea from @waltm on Discord.* Named combinations of generation LoRAs that stack on top of the local Klein edit graph. Stored in `klein.generation_lora_presets` (default: empty — no presets).

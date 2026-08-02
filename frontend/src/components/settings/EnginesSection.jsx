@@ -31,6 +31,7 @@ const ENGINE_OPTIONS = [
   { id: 'openrouter', label: 'OpenRouter' },
   { id: 'klein', label: 'Klein (ComfyUI, local)' },
   { id: 'krea', label: 'Krea 2 Edit (ComfyUI, local)' },
+  { id: 'seedvr2', label: 'SeedVR2 Upscale (ComfyUI, local)' },
 ]
 
 /* Optional generation-LoRA PRESETS, originally for the local Klein engine
@@ -417,6 +418,155 @@ function KreaLorasCard({ config, setField }) {
           ＋ New preset
         </button>
         <span className="text-xs text-content-muted">{presets.length}/{MAX_GENERATION_LORA_PRESETS}</span>
+      </div>
+    </Card>
+  )
+}
+
+/* SeedVR2 super-resolution — the third local ComfyUI engine. It upscales
+   images with a DiT model in tiles and needs the seedvr2_videoupscaler node pack.
+   Blank model paths = auto-resolve inside the ComfyUI model roots. */
+const SEEDVR2_SEED_MAX = 0xFFFFFFFF
+
+function SeedVR2Card({ config, setField, configDefaults, caps }) {
+  const svr2 = config.seedvr2 || {}
+  const reset = { config, configDefaults, setField }
+  const dflt = (key) => defaultValueAt(configDefaults, 'seedvr2', key)
+  const options = (caps?.comfyui?.seedvr2_model_options) || {}
+  const ditOptions = options.dit || []
+  const vaeOptions = options.vae || []
+  return (
+    <Card
+      id="seedvr2-engine"
+      title="SeedVR2 Upscale (local)"
+      help="SeedVR2 super-resolution engine — a Diffusion Transformer based tile-wise upscaling tool."
+    >
+      <div className="sm:max-w-md">
+        <label htmlFor="seedvr2-dit" className="block text-xs font-medium text-content">
+          DiT model
+        </label>
+        <select
+          id="seedvr2-dit"
+          value={(svr2.dit_model ?? '').split('/').pop()}
+          onChange={(e) => setField('seedvr2', 'dit_model', e.target.value)}
+          disabled={!ditOptions.length}
+          className={INPUT_CLASS}
+        >
+          <option value="">auto — detect from ComfyUI</option>
+          {ditOptions.map((o) => (
+            <option key={o.value} value={o.value}>{o.label}</option>
+          ))}
+        </select>
+        <p className="mt-1 text-[0.6875rem] text-content-subtle">
+          SeedVR2 DiT model, listed straight from your ComfyUI's SeedVR2 (Down)Load DiT Model node —
+          exactly the models ComfyUI will accept. Leave unset to auto-detect.
+        </p>
+        <ResetToDefault label="DiT model" section="seedvr2" field="dit_model" {...reset} />
+      </div>
+
+      <div className="mt-3 sm:max-w-md">
+        <label htmlFor="seedvr2-vae" className="block text-xs font-medium text-content">
+          VAE model
+        </label>
+        <select
+          id="seedvr2-vae"
+          value={(svr2.vae_model ?? '').split('/').pop()}
+          onChange={(e) => setField('seedvr2', 'vae_model', e.target.value)}
+          disabled={!vaeOptions.length}
+          className={INPUT_CLASS}
+        >
+          <option value="">auto — detect from ComfyUI</option>
+          {vaeOptions.map((o) => (
+            <option key={o.value} value={o.value}>{o.label}</option>
+          ))}
+        </select>
+        <p className="mt-1 text-[0.6875rem] text-content-subtle">
+          SeedVR2 VAE model, listed from your ComfyUI's SeedVR2 (Down) Load VAE Model node.
+        </p>
+        <ResetToDefault label="VAE model" section="seedvr2" field="vae_model" {...reset} />
+      </div>
+
+      <div className="mt-3 sm:max-w-md">
+        <label htmlFor="seedvr2-resolution" className="block text-xs font-medium text-content">
+          Target resolution (short edge, px)
+        </label>
+        <input
+          id="seedvr2-resolution"
+          type="number"
+          min={16}
+          max={16384}
+          step={2}
+          value={svr2.resolution ?? dflt('resolution')}
+          onChange={(e) => setField('seedvr2', 'resolution', e.target.value === '' ? dflt('resolution') : Number(e.target.value))}
+          className={INPUT_CLASS}
+        />
+        <p className="mt-1 text-[0.6875rem] text-content-subtle">
+          Output short-edge resolution in pixels. Aspect ratio is preserved automatically.
+        </p>
+        <ResetToDefault label="Resolution" section="seedvr2" field="resolution" {...reset} />
+      </div>
+
+      <div className="mt-3 sm:max-w-md">
+        <label htmlFor="seedvr2-color-correction" className="block text-xs font-medium text-content">
+          Color correction
+        </label>
+        <select
+          id="seedvr2-color-correction"
+          value={svr2.color_correction ?? dflt('color_correction')}
+          onChange={(e) => setField('seedvr2', 'color_correction', e.target.value)}
+          className={INPUT_CLASS}
+        >
+          <option value="lab">lab — perceptual color matching (recommended)</option>
+          <option value="wavelet">wavelet — frequency-based natural colors</option>
+          <option value="wavelet_adaptive">wavelet_adaptive</option>
+          <option value="hsv">hsv — hue-conditional saturation</option>
+          <option value="adain">adain — statistical style transfer</option>
+          <option value="none">none — no color correction</option>
+        </select>
+        <p className="mt-1 text-[0.6875rem] text-content-subtle">
+          Color-correction mode applied after upscaling. lab is the recommended default.
+        </p>
+        <ResetToDefault label="Color correction" section="seedvr2" field="color_correction" {...reset} />
+      </div>
+
+      <div className="mt-3 sm:max-w-md">
+        <label htmlFor="seedvr2-batch-size" className="block text-xs font-medium text-content">
+          Batch size (4n+1)
+        </label>
+        <input
+          id="seedvr2-batch-size"
+          type="number"
+          min={1}
+          max={16384}
+          step={4}
+          value={svr2.batch_size ?? dflt('batch_size')}
+          onChange={(e) => setField('seedvr2', 'batch_size', e.target.value === '' ? dflt('batch_size') : Number(e.target.value))}
+          className={INPUT_CLASS}
+        />
+        <p className="mt-1 text-[0.6875rem] text-content-subtle">
+          Frames processed together per batch. Must follow the 4n+1 pattern (1, 5, 9, 13...).
+        </p>
+        <ResetToDefault label="Batch size" section="seedvr2" field="batch_size" {...reset} />
+      </div>
+
+      <div className="mt-3 sm:max-w-md">
+        <label htmlFor="seedvr2-seed" className="block text-xs font-medium text-content">
+          Seed
+        </label>
+        <input
+          id="seedvr2-seed"
+          type="number"
+          min={0}
+          max={SEEDVR2_SEED_MAX}
+          step={1}
+          value={svr2.seed ?? dflt('seed')}
+          onChange={(e) => setField('seedvr2', 'seed', e.target.value === '' ? dflt('seed') : Number(e.target.value))}
+          className={INPUT_CLASS}
+        />
+        <p className="mt-1 text-[0.6875rem] text-content-subtle">
+          Random seed. Same input + same seed = reproducible output.
+        </p>
+        <ResetToDefault label="Seed" section="seedvr2" field="seed" {...reset} />
       </div>
     </Card>
   )
@@ -989,6 +1139,8 @@ export default function EnginesSection(props) {
       <KreaCard config={config} setField={setField} configDefaults={configDefaults} />
 
       <KreaLorasCard config={config} setField={setField} />
+
+      <SeedVR2Card config={config} setField={setField} configDefaults={configDefaults} caps={caps} />
 
       <IdentityPromptsCard config={config} setField={setField} promptDefaults={props.promptDefaults}
         promptDefaultsBySubject={props.promptDefaultsBySubject}

@@ -399,6 +399,25 @@ DEFAULTS = {
         # How hard the source latent is pushed back into the model each step.
         'ref_boost': 0.25,
     },
+    # SeedVR2 super-resolution (services/seedvr2_upscale_helper.py) — the third local
+    # ComfyUI engine. BLANK = "find it yourself": the resolver searches ComfyUI model
+    # roots by canonical filename then narrow tokens. Set explicitly to pin a build.
+    'seedvr2': {
+        # DiT model (the main weight deciding output quality). Blank = auto-find
+        # inside a SEEDVR2 folder.
+        'dit_model': '',
+        # VAE model. Blank = auto-find.
+        'vae_model': '',
+        # Target short-edge resolution in pixels. The original workflow targets
+        # 1080p video; images keep a similar default.
+        'resolution': 1080,
+        # Color-correction mode: lab|wavelet|wavelet_adaptive|hsv|adain|none
+        'color_correction': 'wavelet',
+        # Batch size (4n+1): 1, 5, 9, ...
+        'batch_size': 1,
+        # Seed (for reproducibility).
+        'seed': 2461588580,
+    },
     # Z-Image pipeline — the two loader refs the shipped Test Studio workflow used
     # to hardcode from the developer's own ComfyUI (reported by bobba84, GitHub #18).
     # BLANK = "find it yourself": services/zimage_model_resolver scans every

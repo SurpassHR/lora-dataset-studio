@@ -66,3 +66,6 @@ docs/superpowers/
 # find in tracked files. Kept OUT of the repo — writing them down here would
 # publish exactly what they forbid.
 .privacy-names
+
+# pi-subagents temp artifacts
+.pi-subagents/

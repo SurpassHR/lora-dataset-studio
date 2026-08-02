@@ -1533,6 +1533,11 @@ def probe(force=False) -> dict:
     krea_blocking_invalid = any(i['blocking'] for i in krea_invalid)
     krea_ready = (comfy['ok'] and not krea_missing and not krea_nodes_missing
                   and not krea_blocking_invalid)
+    # SeedVR2 super-resolution — the third local ComfyUI engine
+    from .services import seedvr2_upscale_helper as _suh
+    seedvr2_missing = _suh.seedvr2_missing_assets() if comfy['ok'] else []
+    seedvr2_nodes_missing = _suh.seedvr2_missing_nodes() if comfy['ok'] else []
+    seedvr2_ready = (comfy['ok'] and not seedvr2_missing and not seedvr2_nodes_missing)
     base_dir = cfg.get('comfyui.base_dir') or ''
     from .services import comfyui_control
     comfy_launcher = comfyui_control.launcher_status()
@@ -1563,6 +1568,7 @@ def probe(force=False) -> dict:
             'openrouter': openrouter_['ok'],
             'klein': klein_ready,
             'krea': krea_ready,
+            'seedvr2': seedvr2_ready,
         },
         'chatgpt_subscription': {
             'connected': sub_status['connected'],
@@ -1615,6 +1621,12 @@ def probe(force=False) -> dict:
             # [{asset, filename, verdict, blocking, reason}] shape as
             # klein_invalid, so one banner covers both engines.
             'krea_invalid': krea_invalid,
+            # SeedVR2 super-resolution missing models & nodes
+            'seedvr2_missing': seedvr2_missing,
+            'seedvr2_nodes_missing': seedvr2_nodes_missing,
+            # SeedVR2 DiT & VAE model options straight from /object_info, so the
+            # settings dropdown matches what ComfyUI will accept.
+            'seedvr2_model_options': _suh.seedvr2_model_options() if comfy['ok'] else {'dit': [], 'vae': []},
             # Klein assets PRESENT on disk but not real, loadable weights:
             # [{asset, filename, verdict, blocking, reason}]. Distinct from
             # klein_missing (the file exists, it just can't load) — drives the Setup

@@ -87,10 +87,15 @@ MODEL_FILE_CLASSES = frozenset({
     'UNETLoader', 'CheckpointLoaderSimple', 'VAELoader', 'CLIPLoader',
     'DualCLIPLoader', 'LoraLoaderModelOnly', 'LoraLoader', 'ControlNetLoader',
     'UnetLoaderGGUF', 'UnetLoaderGGUFAdvanced', 'CLIPLoaderGGUF', 'DualCLIPLoaderGGUF',
+    # SeedVR2 custom nodes — their `model` Combo input must match the file list
+    # the node pack publishes, otherwise ComfyUI rejects the graph with a
+    # "Value not in list" validation error indistinguishable from the core one.
+    'SeedVR2LoadDiTModel', 'SeedVR2LoadVAEModel',
 })
 MODEL_FILE_INPUTS = frozenset({
     'unet_name', 'ckpt_name', 'vae_name', 'clip_name', 'clip_name1', 'clip_name2',
     'lora_name', 'control_net_name', 'style_model_name',
+    'model',  # used by SeedVR2LoadDiTModel / SeedVR2LoadVAEModel
 })
 
 

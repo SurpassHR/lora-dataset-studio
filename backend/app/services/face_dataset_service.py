@@ -254,6 +254,7 @@ _ACTIVE_RUN_MESSAGE = _ACTIVE_RUN_TEMPLATE.format(action='deleting')
 SMALL_IMAGE_SOURCE = 'small_image_source'
 KLEIN_SMALL_IMAGE = 'klein_small_image'
 KLEIN_IMAGE_IMPROVE = 'klein_image_improve'
+SEEDVR2_UPSCALE = 'seedvr2_upscale'
 
 # The three "Upscale & improve" knobs live in config (klein.improve_*). Read
 # through clamps: a hand-edited config with a string, a negative or a wild value
@@ -8257,6 +8258,120 @@ def _drain_improve_queue(user_id, dataset_id, image_ids, token, sleep=time.sleep
     return {'total': total, 'queued': queued, 'failed': failed,
             'stopped': stopped, 'stalled': stalled,
             'remaining': total - queued - failed}
+
+
+# --- SeedVR2 bulk upscale ----------------------------------------------
+def seedvr2_upscale_eligible_ids(user_id, dataset_id, image_ids):
+    """Image ids eligible for SeedVR2 upscale, in selection order, de-duplicated.
+
+    Excludes: small-image rescue pairs, already-upscaled derived rows. Root
+    sources (reference, imported) remain eligible — SeedVR2 works on any source
+    image with a file on disk."""
+    wanted, seen = [], set()
+    for raw in image_ids or []:
+        try:
+            image_id = int(raw)
+        except (TypeError, ValueError):
+            continue
+        if image_id not in seen:
+            seen.add(image_id)
+            wanted.append(image_id)
+    if not wanted:
+        return []
+    rows = {}
+    for row in (FaceDatasetImage.query
+                .filter(FaceDatasetImage.dataset_id == dataset_id,
+                        FaceDatasetImage.id.in_(wanted)).all()):
+        rows[row.id] = row
+    eligible = []
+    for image_id in wanted:
+        img = rows.get(image_id)
+        if not img or not img.filename:
+            continue
+        if img.derivation_kind in _SMALL_IMAGE_DERIVATIONS:
+            continue
+        if img.derivation_kind == SEEDVR2_UPSCALE:
+            continue
+        eligible.append(image_id)
+    return eligible
+
+
+def start_bulk_seedvr2_upscale(app, user_id, dataset_id, image_ids):
+    """Start the bulk SeedVR2 upscale batch over ``image_ids``.
+
+    Returns ``{'queued', 'skipped'}``. Preflight checks happen before any
+    enqueue. Raises ValueError (-> 400), RuntimeError (-> 409) or
+    SeedVR2ModelsMissing (-> structured 409), matching the Klein improve pattern."""
+    from . import seedvr2_upscale_helper as suh
+    ds = get_dataset(user_id, dataset_id)
+    if not ds:
+        raise ValueError('dataset not found')
+    preflight_missing = suh.seedvr2_missing_assets()
+    preflight_nodes = suh.seedvr2_missing_nodes()
+    if preflight_missing or preflight_nodes:
+        raise suh.SeedVR2ModelsMissing(preflight_missing, preflight_nodes)
+    eligible = seedvr2_upscale_eligible_ids(user_id, dataset_id, image_ids)
+    if not eligible:
+        raise ValueError('no selected image is eligible for upscale')
+    skipped = max(0, len(set(image_ids or [])) - len(eligible))
+    total = len(eligible)
+
+    def _run():
+        try:
+            with app.app_context():
+                _drain_seedvr2_upscale_queue(user_id, dataset_id, eligible)
+        except Exception:   # noqa: BLE001 — a background crash must not strand the indicator
+            logger.exception('seedvr2 upscale batch failed on dataset %s', dataset_id)
+
+    if app.config.get('TESTING'):
+        _run()
+    else:
+        threading.Thread(target=_run, daemon=True,
+                         name=f'ds-{dataset_id}-seedvr2').start()
+    return {'queued': total, 'skipped': skipped}
+
+
+def _drain_seedvr2_upscale_queue(user_id, dataset_id, image_ids):
+    """Enqueue one SeedVR2 upscale per image: create a derived row, then queue."""
+    from . import seedvr2_upscale_helper as suh
+    total = len(image_ids)
+    queued = failed = 0
+    for image_id in image_ids:
+        img = _owned_image(user_id, image_id)
+        if not img or not img.filename:
+            failed += 1
+            continue
+        source_path = _img_path(img)
+        if not os.path.isfile(source_path):
+            logger.warning('seedvr2 upscale: source missing for image %s', image_id)
+            failed += 1
+            continue
+        candidate = FaceDatasetImage(
+            dataset_id=dataset_id, source='generated', status='pending',
+            parent_image_id=img.id, derivation_kind=SEEDVR2_UPSCALE,
+            framing=img.framing, caption=img.caption,
+            variation_label=img.variation_label,
+            variation_prompt=img.variation_prompt,
+            source_metadata=_source_metadata_storage(img.source_metadata),
+        )
+        db.session.add(candidate)
+        db.session.commit()
+        try:
+            job_id = suh.enqueue_seedvr2_upscale(
+                user_id=str(user_id), source_filename=img.filename,
+                source_path=source_path,
+                extra_metadata={'dataset_id': dataset_id, 'image_id': candidate.id},
+            )
+            candidate.job_id = job_id
+            db.session.commit()
+            queued += 1
+        except Exception as exc:   # noqa: BLE001 — one refusal never sinks the batch
+            logger.warning('seedvr2 upscale: image %s could not be queued (%s)',
+                           image_id, exc)
+            db.session.delete(candidate)
+            db.session.commit()
+            failed += 1
+    return {'total': total, 'queued': queued, 'failed': failed}
 
 
 def regenerate_image(user_id, image_id, lora_strength=None, prompt=None, app=None,

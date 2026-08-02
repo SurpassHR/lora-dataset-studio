@@ -1038,6 +1038,30 @@ def _distill_object_info(data):
 _normalise_model_name = comfy_names.normalise_model_name
 
 
+def _combo_choices(decl):
+    """The accepted-value list from one /object_info input declaration, in EITHER
+    of the two shapes ComfyUI publishes:
+
+      * classic core nodes:   [[choice, ...], {meta}]   (decl[0] is the list)
+      * comfy_api.latest.io:  ["COMBO", {options: [...]}]  (options lives in decl[1])
+
+    Returns None when the declaration carries no concrete choice list (a link,
+    a non-combo widget, a malformed shape) — callers keep their fail-open
+    behaviour. The io.COMBO shape is what seedvr2_videoupscaler publishes, so
+    without this branch its model list would be invisible to every consumer."""
+    if not isinstance(decl, (list, tuple)) or not decl:
+        return None
+    head = decl[0]
+    if isinstance(head, list) and all(isinstance(v, str) for v in head):
+        return head
+    # io.Combo: ["COMBO", {..., "options": [choice, ...]}]
+    if head == 'COMBO' and isinstance(decl[1], dict):
+        opts = decl[1].get('options')
+        if isinstance(opts, list) and all(isinstance(v, str) for v in opts):
+            return opts
+    return None
+
+
 def _distill_model_files(data):
     """{class_type: {input_name: {normalised_name: PUBLISHED name}}} for the FILE
     inputs of the loader classes we ship (`_MODEL_FILE_CLASSES` /
@@ -1065,8 +1089,8 @@ def _distill_model_files(data):
                 for name, decl in decls.items():
                     if name not in _MODEL_FILE_INPUTS:
                         continue
-                    choices = decl[0] if isinstance(decl, (list, tuple)) and decl else None
-                    if isinstance(choices, list) and all(isinstance(v, str) for v in choices):
+                    choices = _combo_choices(decl)
+                    if choices:
                         combos[name] = {_normalise_model_name(v): v for v in choices}
         if combos:
             out[cls] = combos

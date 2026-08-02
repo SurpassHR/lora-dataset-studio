@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useCallback, useState } from 'react';
 import DatasetGridItem from './DatasetGridItem';
 import TileSizeControl from '../shared/TileSizeControl';
 import KleinImproveNote from './KleinImproveNote';
@@ -159,6 +159,7 @@ export default function DatasetGrid({ images, datasetId, onStatus, onCaption, on
                                       onMirror, onRegenerate, onScoreFace, scoringFaceIds, onReimprove, onView, onBatch, busy, nonces,
                                       mirroringIds, faceThresholds, datasetKind = 'character',
                                       onImproveBatch, kleinAvailable = false,
+                                      onSeedvr2Batch, seedvr2Available = false,
                                       eligibilityImages, dualCaptions = false,
                                       subjectType = '',
                                       // Server's reason why face scoring can't run here
@@ -172,11 +173,13 @@ export default function DatasetGrid({ images, datasetId, onStatus, onCaption, on
   // Only the LAUNCH request is tracked locally; the batch's own progress comes
   // from the server (`activity`), so it survives a reload and a closed tab.
   const [launchingImprove, setLaunchingImprove] = useState(false);
+  const [launchingSeedvr2, setLaunchingSeedvr2] = useState(false);
   const improveLabel = kleinImproveBatchLabel(activity);
-  const bulkBusy = busy || launchingImprove;
+  const bulkBusy = busy || launchingImprove || launchingSeedvr2;
   useEffect(() => {
     setSelected(new Set());
     setLaunchingImprove(false);
+    setLaunchingSeedvr2(false);
   }, [datasetId]);
   // Prune ids that vanished (deleted / poll refresh) so stale selections can't act.
   useEffect(() => {
@@ -261,6 +264,31 @@ export default function DatasetGrid({ images, datasetId, onStatus, onCaption, on
       setLaunchingImprove(false);
     }
   };
+  // SeedVR2 upscale batch: create derived candidates for each selected image.
+  const seedvr2Selected = async () => {
+    const eligible = improveSelection.eligible;
+    if (!onSeedvr2Batch || !seedvr2Available || !eligible.length || bulkBusy) return;
+    if (!window.confirm(
+      `SeedVR2 upscale ${eligible.length} image(s)?`
+      + '\n\nQueued in background — close the tab safely. Original images stay unchanged;'
+      + ' upscaled results appear as new candidates for review.'
+      + `\n\nRequires the seedvr2_videoupscaler custom node pack in ComfyUI, and the model`
+      + ' paths configured in Settings ▸ Engines › SeedVR2.',
+    )) return;
+    setLaunchingSeedvr2(true);
+    try {
+      const result = await onSeedvr2Batch(eligible.map((image) => image.id));
+      if (result?.ok) {
+        setSelected(new Set());
+        toast.success(`Started SeedVR2 upscale for ${result.queued} image(s)`
+          + (result.skipped ? ` (${result.skipped} skipped)` : ''));
+      }
+    } catch (error) {
+      toast.error(`Could not start the upscale batch: ${error?.message || 'unknown error'}`);
+    } finally {
+      setLaunchingSeedvr2(false);
+    }
+  };
   const batchBtn = 'px-2.5 py-1 rounded-lg text-xs font-semibold disabled:opacity-40';
 
   return (
@@ -305,6 +333,17 @@ export default function DatasetGrid({ images, datasetId, onStatus, onCaption, on
                       : `No selected image is eligible.${exclusionSummary ? ` ${exclusionSummary}.` : ''}`}
                   className={`${batchBtn} border border-indigo-400/50 bg-indigo-500/20 text-indigo-100`}>
                   {improveLabel || `✨ Improve via Klein (${improveSelection.eligible.length})`}
+                </button>
+              )}
+              {onSeedvr2Batch && (
+                <button type="button" onClick={seedvr2Selected}
+                  disabled={bulkBusy || !seedvr2Available
+                            || !improveSelection.eligible.length}
+                  title={!seedvr2Available
+                    ? 'SeedVR2 is not available in this setup'
+                    : `Upscale the ${improveSelection.eligible.length} eligible selected image(s) with SeedVR2 (background, survives reload)`}
+                  className={`${batchBtn} border border-cyan-400/50 bg-cyan-500/20 text-cyan-100`}>
+                  {launchingSeedvr2 ? '⏳ Starting…' : `🖥 SeedVR2 upscale (${improveSelection.eligible.length})`}
                 </button>
               )}
               {onImproveBatch && improveSelection.excluded.length > 0 && (

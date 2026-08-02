@@ -688,6 +688,25 @@ const TOPICS = [
     ['krea', 'krea 2', 'lora', 'loras', 'generation lora', 'preset', 'presets',
      'always-on', 'always on', 'filter bypass', 'filterbypass', 'bypass', 'nsfw',
      'uncensored', 'style lora', 'detail slider', 'chain', 'stack', 'strength']),
+  // SeedVR2 super-resolution — the third local ComfyUI engine. `dit_model` first:
+  // the dropdown mirrors the SeedVR2 node's own model list, so "value not in list"
+  // means the Combo list and the disk disagree (a restart of ComfyUI picks up a
+  // newly dropped file).
+  setting('seedvr2.dit_model', 'engines', 'seedvr2-dit', 'SeedVR2 DiT model',
+    ['seedvr2', 'super resolution', 'upscale', 'upscaling', 'dit', 'diT model',
+     'local engine', 'comfyui', 'value not in list', 'index', 'ema', '3b', '7b', 'phone',
+     'sharp', 'quant', 'gguf', 'download model', 'model missing']),
+  setting('seedvr2.vae_model', 'engines', 'seedvr2-vae', 'SeedVR2 VAE model',
+    ['seedvr2', 'vae', 'video autoencoder', 'upscale', 'auto search', 'local engine',
+     'ema_vae_fp16', 'missing']),
+  setting('seedvr2.resolution', 'engines', 'seedvr2-resolution', 'SeedVR2 target resolution',
+    ['seedvr2', 'resolution', 'shor edge', 'pixels', 'upscale', 'quality', 'aspect ratio']),
+  setting('seedvr2.color_correction', 'engines', 'seedvr2-color-correction', 'SeedVR2 color correction',
+    ['seedvr2', 'color', 'colour', 'correction', 'wavelet', 'lab', 'hsv', 'adain', 'hue', 'saturation']),
+  setting('seedvr2.batch_size', 'engines', 'seedvr2-batch-size', 'SeedVR2 batch size',
+    ['seedvr2', 'batch', 'batch size', '4n+1', 'frames', 'vram', 'temporal', 'performance']),
+  setting('seedvr2.seed', 'engines', 'seedvr2-seed', 'SeedVR2 seed',
+    ['seedvr2', 'seed', 'reproducible', 'same output', 'deterministic']),
   setting('identity_prompts.face', 'engines', 'identity-prompts', 'Identity lock prompts (API engines)',
     ['identity', 'prompt', 'guard', 'lock', 'face', 'reference', 'beautify', 'preserve', 'consistency', 'edit prompt',
      'subject type', 'animal', 'per subject', 'leak', 'tails', 'extra limbs']),
