@@ -4,6 +4,7 @@ import { apiFetch, putJson, del } from '../api/fetchClient'
 import { useToast } from '../components/common/Toast'
 import { useCapabilities } from '../context/CapabilitiesContext'
 import { SETTINGS_SECTIONS, sectionStatus, matchesQuery } from '../components/settings/registry'
+import { CARD_INDEX } from '../components/settings/cardIndex'
 import { SectionHeader } from '../components/settings/primitives'
 import { shouldScrollToSection, focusNeedsRescroll } from './settingsDeepLink'
 import { HelpBadge } from '../help/HelpMode'
@@ -333,6 +334,17 @@ export default function SettingsPage() {
     setSecretInputs({})
   }
 
+  // Card index for the active section: the sidebar's second level. Grouped by
+  // section once per render; a section with no cards (Overview) simply shows no
+  // sub-list.
+  const cardsBySection = useMemo(() => {
+    const map = {}
+    for (const c of CARD_INDEX) {
+      ;(map[c.section] ||= []).push(c)
+    }
+    return map
+  }, [])
+
   if (loading || !config) {
     return <p className="text-content-muted">Loading settings…</p>
   }
@@ -380,6 +392,22 @@ export default function SettingsPage() {
     else if (e.key === 'Escape') { setQuery('') }
   }
 
+  /* Jump to a card inside a section. Same-target scrolls in place (the panel is
+     already on screen); a different section navigates with a ?focus= deep link
+     so the page's own focus effect scrolls and rings the card once it renders. */
+  const jumpToCard = (section, id) => {
+    if (section === activeId) {
+      const el = document.getElementById(id)
+      if (!el) return
+      el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      const ring = ['ring-2', 'ring-indigo-400/70', 'ring-offset-2', 'ring-offset-app', 'rounded-md']
+      el.classList.add(...ring)
+      setTimeout(() => el.classList.remove(...ring), 2500)
+      return
+    }
+    navigate(`/settings/${section}?focus=${id}`)
+  }
+
   const navItem = (s, chip, resultIdx = null) => {
     const isActive = s.id === activeId
     const activeKb = resultIdx !== null && resultIdx === activeResult
@@ -389,17 +417,38 @@ export default function SettingsPage() {
       : `relative flex w-full items-center gap-2.5 rounded-md px-3 py-2 text-left text-sm font-medium ${
           isActive ? 'bg-surface-raised text-content' : 'text-content-muted hover:bg-surface hover:text-content'} ${
           activeKb ? 'ring-1 ring-inset ring-indigo-400/50' : ''}`
+    const subs = !chip && !q ? (cardsBySection[s.id] || []) : []
+    // The active section's cards are always visible; the others peek out on hover.
+    const subList = !chip && subs.length > 0 ? (
+      <div className={`pl-9 text-[13px] ${isActive ? 'block' : 'hidden group-hover:block'}`}>
+        {subs.map((c) => (
+          <button
+            key={c.id}
+            type="button"
+            onClick={() => jumpToCard(s.id, c.id)}
+            title={c.title}
+            className="flex w-full items-center gap-1.5 truncate rounded px-2 py-1 text-left text-content-muted hover:bg-surface hover:text-content"
+          >
+            <span aria-hidden className="h-1 w-1 shrink-0 rounded-full bg-border-strong" />
+            <span className="truncate">{c.title}</span>
+          </button>
+        ))}
+      </div>
+    ) : null
     return (
-      <button key={s.id} type="button" onClick={() => navigate(`/settings/${s.id}`)}
-        onMouseEnter={resultIdx !== null ? () => setActiveResult(resultIdx) : undefined}
-        aria-current={isActive ? 'page' : undefined} className={base}>
-        {!chip && isActive && (
-          <span aria-hidden className="absolute bottom-1.5 left-0 top-1.5 w-0.5 rounded bg-gradient-primary" />
-        )}
-        <span aria-hidden>{s.icon}</span>
-        <span>{s.title}</span>
-        {!chip && <StatusLed status={sectionStatus(s.id, caps)} />}
-      </button>
+      <div key={s.id} className="group">
+        <button type="button" onClick={() => navigate(`/settings/${s.id}`)}
+          onMouseEnter={resultIdx !== null ? () => setActiveResult(resultIdx) : undefined}
+          aria-current={isActive ? 'page' : undefined} className={base}>
+          {!chip && isActive && (
+            <span aria-hidden className="absolute bottom-1.5 left-0 top-1.5 w-0.5 rounded bg-gradient-primary" />
+          )}
+          <span aria-hidden>{s.icon}</span>
+          <span>{s.title}</span>
+          {!chip && <StatusLed status={sectionStatus(s.id, caps)} />}
+        </button>
+        {subList}
+      </div>
     )
   }
 

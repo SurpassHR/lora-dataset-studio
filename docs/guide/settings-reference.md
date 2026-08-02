@@ -6,6 +6,8 @@ Every setting in LoRA Dataset Studio, explained: what it does, its default, when
 
 Open **Settings** from the top nav. Each rail entry on the left is a section (Overview, Image engines, Scraping & sources, Local tools, Captioning & quality, Training, Server & access, Maintenance); its little LED shows live health at a glance — **green** when the section is fully configured, **amber** when it's partly set up, **off** when nothing is configured yet.
 
+**Every section reveals its cards under its rail entry.** Hover a section and the cards inside it appear right below its name — *API keys*, *Image models*, *Engines*, and each engine's card — and the section you're reading always shows its own list. Click a card name to jump straight to that card: within the current section it scrolls in place, from another section it takes you there first, and the card you land on gets a brief outline so you can see exactly where you are. Sections with a single card (like *Server*) just link to that card.
+
 A few things hold true everywhere:
 
 - **Nothing saves until you say so.** Change any field and a floating **Unsaved changes** bar appears with **Save** and **Discard**. Navigate away with changes pending and they're kept in the bar, not written.

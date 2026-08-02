@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { postJson } from '../../api/fetchClient'
+import { cardAnchorId } from './registry'
 
 export const INPUT_CLASS =
   'mt-1 w-full rounded-md border border-border-strong bg-surface-raised px-3 py-2 text-sm text-content ' +
@@ -80,7 +81,7 @@ export function TestButton({ target, onResult, beforeTest }) {
 
 export function Card({ title, help, children, id }) {
   return (
-    <section id={id} className="scroll-mt-24 rounded-xl border border-border bg-surface p-5">
+    <section id={id || cardAnchorId(title)} className="scroll-mt-24 rounded-xl border border-border bg-surface p-5">
       <h2 className="text-base font-semibold text-content">{title}</h2>
       {help && <p className="mt-1 text-sm text-content-muted">{help}</p>}
       <div className="mt-4 space-y-4">{children}</div>

@@ -48,6 +48,14 @@ import { SETUP_DEEP_LINK_STEPS } from './hooks/useSetupSteps.js';
 // Newest first. Prepend new waves at the top.
 export const WHATS_NEW = [
   {
+    id: '2026-08-02-settings-sidebar-subheadings',
+    date: '2026-08-02',
+    title: 'The Settings sidebar now shows each section’s cards — jump straight to the ones you need',
+    blurb:
+      'The Image engines section holds nine cards, and “API keys” and “Klein generation quality” were nine mouse-wheel scrolls apart. Hover any section in the Settings rail and its cards appear underneath it — API keys, Image models, Engines, every LoRA preset and prompt card — and the section you are in always shows its list. Click a card name and the page scrolls straight to it, with a brief outline so you can see exactly where you landed; a card in another section takes you there first. No more hunting a card by name.',
+    to: '/settings',
+  },
+  {
     id: '2026-08-02-dataset-upload-is-visible',
     date: '2026-08-02',
     title: 'You can now watch the dataset go up to the rented machine — and it stops billing if it does not',
@@ -72,6 +80,7 @@ export const WHATS_NEW = [
     to: '/studio',
   },
   {
+
     id: '2026-08-02-studio-stack-results-view',
     date: '2026-08-02',
     title: 'Find the right weights for a 🧬 stack by comparing your runs side by side',

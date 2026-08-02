@@ -68,3 +68,15 @@ export function matchesQuery(section, q) {
   return section.title.toLowerCase().includes(needle)
     || section.keywords.some((k) => k.includes(needle))
 }
+
+/* Stable anchor for a settings card WITHOUT an explicit id="…". Mirrors the
+   slug in scripts/cardIndex.mjs exactly, so the sidebar's generated sub-heading
+   id and the DOM id the Card renders are the same string and the jump lands.
+   (Explicit ids like "engine-image-models" pass through untouched.) */
+export function cardAnchorId(title) {
+  const base = String(title || '').toLowerCase()
+    .replace(/&/g, 'and')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+  return base ? `card-${base}` : undefined
+}
