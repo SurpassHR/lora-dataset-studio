@@ -544,7 +544,7 @@ export function useDataset() {
     return d;
   }, [currentId, refresh, toast]);
 
-  // Bulk SeedVR2 超分辨率：ONE call that starts a SERVER job (background).
+  // Bulk SeedVR2 upscale: ONE call that starts a SERVER job (background).
   const seedvr2Batch = useCallback(async (imageIds) => {
     const ids = (imageIds || []).map((v) => Number(v)).filter(Number.isInteger);
     if (!ids.length) return { ok: false, error: 'nothing selected' };
