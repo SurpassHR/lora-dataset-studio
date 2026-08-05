@@ -124,8 +124,9 @@ def test_with_the_pack_the_same_request_is_tiled_instead():
     assert 'tiles' in lane['notice']
 
 
-def test_the_pack_being_present_does_not_tile_what_needs_no_tiling():
+def test_the_pack_being_present_does_not_tile_what_needs_no_tiling(monkeypatch):
     from app.services import seedvr2_helper as svr
+    monkeypatch.setattr(svr.cfg, 'get', lambda *a, **k: 'auto')
     lane = svr.choose_lane(768, 1024, short_edge=1080, tiling_ok=True,
                            ceiling_mp=svr.full_frame_ceiling_mp(24))
     assert lane['lane'] == 'full' and lane['plan'] is None
@@ -133,33 +134,67 @@ def test_the_pack_being_present_does_not_tile_what_needs_no_tiling():
 
 # --- The graph itself ------------------------------------------------------
 
-def test_the_tiled_graph_needs_only_the_two_TTP_nodes():
-    """The reduction that dropped a GPL-3.0 dependency. If a third pack creeps
-    back in, this is where it is caught."""
+def test_the_tiled_graph_needs_only_the_three_MIT_packs():
+    """The full port of SeedVR2.json uses exactly three node packs, all MIT:
+    TTP (tiling), ComfyUI-Essentials (SimpleMath+), masquerade (Get Image
+    Size). No GPL-3.0 pack may creep back in."""
     from app.services import seedvr2_helper as svr
     g = svr.build_tiled_workflow('src.png', dit='d.safetensors', vae='v.safetensors',
                                  seed=42, plan=_plan(), filename_prefix='pfx')
     classes = {n['class_type'] for n in g.values()}
     foreign = {c for c in classes
                if c.startswith('TTP_') or '+' in c or c.startswith('easy ')}
-    assert foreign == {'TTP_Image_Tile_Batch', 'TTP_Image_Assy'}, (
-        f'the tiled lane must depend on TTP alone; found {sorted(foreign)}')
+    assert foreign == {'TTP_Image_Tile_Batch', 'TTP_Tile_image_size',
+                       'TTP_Image_Assy', 'SimpleMath+'}, (
+        f'the tiled lane must depend on TTP + Essentials only; found '
+        f'{sorted(foreign)}')
     assert classes == {'SeedVR2LoadDiTModel', 'SeedVR2LoadVAEModel', 'LoadImage',
-                       'ImageScale', 'TTP_Image_Tile_Batch',
-                       'SeedVR2VideoUpscaler', 'TTP_Image_Assy', 'SaveImage'}
+                       'ImageScaleBy', 'TTP_Image_Tile_Batch', 'TTP_Tile_image_size',
+                       'TTP_Image_Assy', 'SimpleMath+', 'Get Image Size',
+                       'GetImageSize', 'ResizeImageMaskNode',
+                       'SeedVR2VideoUpscaler', 'SaveImage'}
 
 
-def test_the_tiled_graph_is_wired_tiles_in_tiles_out():
+def test_the_tiled_graph_is_a_full_port_of_the_reference():
+    """The reference SeedVR2.json chain: load → ×2 → read size → count tiles
+    (width/1024) → cut → ×0.25 → model → resize back → assemble."""
     from app.services import seedvr2_helper as svr
     g = svr.build_tiled_workflow('src.png', dit='d', vae='v', seed=42, plan=_plan())
+    up = next(k for k, n in g.items() if n['class_type'] == 'ImageScaleBy'
+              and n['inputs'].get('scale_by') == 2.0)
+    size = next(k for k, n in g.items() if n['class_type'] == 'Get Image Size')
+    math1 = next(k for k, n in g.items() if n['class_type'] == 'SimpleMath+')
+    tile_size = next(k for k, n in g.items() if n['class_type'] == 'TTP_Tile_image_size')
     tiler = next(k for k, n in g.items() if n['class_type'] == 'TTP_Image_Tile_Batch')
-    up = next(k for k, n in g.items() if n['class_type'] == 'SeedVR2VideoUpscaler')
+    shrink = next(k for k, n in g.items() if n['class_type'] == 'ImageScaleBy'
+                  and n['inputs'].get('scale_by') == 0.25)
+    orig_size = next(k for k, n in g.items() if n['class_type'] == 'GetImageSize')
+    model = next(k for k, n in g.items() if n['class_type'] == 'SeedVR2VideoUpscaler')
+    resize = next(k for k, n in g.items() if n['class_type'] == 'ResizeImageMaskNode')
     assy = next(k for k, n in g.items() if n['class_type'] == 'TTP_Image_Assy')
-    # The upscaler eats the tile BATCH...
-    assert g[up]['inputs']['image'] == [tiler, 0]
-    # ...and the assembler takes the upscaled tiles plus the tiler's own
-    # positions / original size / grid, which is what puts them back in place.
-    assert g[assy]['inputs']['tiles'] == [up, 0]
+    # ×2 upscale first, then everything reads the ×2 image
+    assert g[up]['inputs']['scale_by'] == 2.0
+    assert g[size]['inputs']['image'] == [up, 0]
+    # width/height → SimpleMath+ a/1024 → width_factor/height_factor
+    assert g[math1]['inputs']['a'] == [size, 0]
+    assert g[math1]['inputs']['value'] == 'a/1024'
+    assert g[tile_size]['inputs']['width_factor'] == [math1, 0]
+    assert g[tile_size]['inputs']['overlap_rate'] == 0.1
+    # cut the ×2 image
+    assert g[tiler]['inputs']['image'] == [up, 0]
+    assert g[tiler]['inputs']['tile_width'] == [tile_size, 0]
+    assert g[tiler]['inputs']['tile_height'] == [tile_size, 1]
+    # ×0.25 into the model
+    assert g[shrink]['inputs']['image'] == [tiler, 0]
+    assert g[model]['inputs']['image'] == [shrink, 0]
+    # original tile dims (from the tiler) drive the resize-back
+    assert g[orig_size]['inputs']['image'] == [tiler, 0]
+    assert g[resize]['inputs']['input'] == [model, 0]
+    assert g[resize]['inputs']['resize_type.width'] == [orig_size, 0]
+    assert g[resize]['inputs']['resize_type.height'] == [orig_size, 1]
+    assert g[resize]['inputs']['resize_type.crop'] == 'disabled'
+    # assembler: resized tiles + tiler's positions / original size / grid
+    assert g[assy]['inputs']['tiles'] == [resize, 0]
     assert g[assy]['inputs']['positions'] == [tiler, 1]
     assert g[assy]['inputs']['original_size'] == [tiler, 2]
     assert g[assy]['inputs']['grid_size'] == [tiler, 3]
@@ -206,8 +241,11 @@ def test_the_TTP_names_are_the_ones_the_pack_registers():
     very pack `TTP_Tile_image_size` maps to a class called `Tile_imageSize`, so
     the two spellings do not even agree."""
     from app.services import seedvr2_helper as svr
-    assert svr.TTP_NODE_CLASSES == ('TTP_Image_Tile_Batch', 'TTP_Image_Assy')
+    assert svr.TTP_NODE_CLASSES == ('TTP_Image_Tile_Batch', 'TTP_Tile_image_size',
+                                    'TTP_Image_Assy')
     assert svr.TTP_NODE_PACK['license'] == 'MIT'
+    assert svr.MASQUERADE_PACK['license'] == 'MIT'
+    assert svr.ESSENTIALS_PACK['license'] == 'MIT'
 
 
 def test_tiling_probe_fails_closed_when_comfyui_is_unreachable(app, monkeypatch):
@@ -221,17 +259,19 @@ def test_tiling_probe_fails_closed_when_comfyui_is_unreachable(app, monkeypatch)
         assert svr.tiling_available(comfy_ok=False) is False
 
 
-def test_tiling_is_available_only_when_both_classes_are_there(app, monkeypatch):
+def test_tiling_is_available_only_when_all_classes_are_there(app, monkeypatch):
     from app.services import seedvr2_helper as svr
     svr.clear_nodes_cache()
     monkeypatch.setattr('app.utils.comfyui.fetch_object_info_classes',
                         lambda: {'TTP_Image_Tile_Batch'})
     with app.app_context():
-        assert svr.ttp_missing_nodes() == ['TTP_Image_Assy']
+        assert svr.ttp_missing_nodes() == ['Get Image Size', 'SimpleMath+',
+                                           'TTP_Image_Assy', 'TTP_Tile_image_size']
         assert svr.tiling_available(True) is False
     svr.clear_nodes_cache()
     monkeypatch.setattr('app.utils.comfyui.fetch_object_info_classes',
-                        lambda: set(svr.TTP_NODE_CLASSES) | {'LoadImage'})
+                        lambda: set(svr.TTP_NODE_CLASSES + svr.TILED_EXTRA_CLASSES)
+                        | {'LoadImage'})
     with app.app_context():
         assert svr.tiling_available(True) is True
     svr.clear_nodes_cache()
@@ -284,11 +324,12 @@ def test_never_forces_full_frame_whatever_the_geometry():
     assert 'run out of memory' in lane['notice']
 
 
-def test_always_is_literal_and_tiles_below_the_crossover_too():
+def test_always_is_literal_and_tiles_below_the_crossover_too(monkeypatch):
     """'always' means what it says: cut whenever there is a grid to make, even
     at a target the default would leave whole. For whoever wants tiling
     unconditionally — and the only way to get a grid under the crossover."""
     from app.services import seedvr2_helper as svr
+    monkeypatch.setattr(svr.cfg, 'get', lambda *a, **k: 'auto')
     modest = dict(width=768, height=1024, short_edge=1200)
     assert svr.choose_lane(**modest, tiling_ok=True,
                            ceiling_mp=BIG_CARD)['lane'] == 'full'
@@ -337,12 +378,13 @@ def test_a_frame_inside_one_tile_is_never_tiled_even_on_always():
                            ceiling_mp=BIG_CARD, mode='always')['lane'] == 'tiled'
 
 
-def test_the_default_leaves_a_1080_target_whole():
+def test_the_default_leaves_a_1080_target_whole(monkeypatch):
     """The shipped default resolution. The model already runs at a comfortable
     size there, so tiling would buy nothing and still pay for seams and a second
     pass — this is the guard that stopped 'tile for quality' becoming 'tile
     everything'."""
     from app.services import seedvr2_helper as svr
+    monkeypatch.setattr(svr.cfg, 'get', lambda *a, **k: 'auto')
     lane = svr.choose_lane(832, 1216, short_edge=1080, tiling_ok=True,
                            ceiling_mp=BIG_CARD)
     assert lane['lane'] == 'full'
@@ -415,10 +457,11 @@ def test_the_crossover_follows_the_tile_unless_it_is_set(app):
         assert svr.tile_threshold() == svr.RESOLUTION_MIN
 
 
-def test_a_smaller_tile_tiles_sooner():
+def test_a_smaller_tile_tiles_sooner(monkeypatch):
     """The lane decision, not just the arithmetic: the same 1200 px request that
     stays whole at a 1024 tile is tiled at a 512 one."""
     from app.services import seedvr2_helper as svr
+    monkeypatch.setattr(svr.cfg, 'get', lambda *a, **k: 'auto')
     modest = dict(width=768, height=1024, short_edge=1200)
     assert svr.choose_lane(**modest, tiling_ok=True,
                            ceiling_mp=BIG_CARD)['lane'] == 'full'
@@ -431,7 +474,7 @@ def test_a_smaller_tile_tiles_sooner():
                            tile_px=512, tile_above=4096)['lane'] == 'full'
 
 
-def test_a_target_sitting_EXACTLY_on_the_crossover_stays_full_frame():
+def test_a_target_sitting_EXACTLY_on_the_crossover_stays_full_frame(monkeypatch):
     """The boundary, pinned as a DECISION rather than left as an accident.
 
     The crossover is derived (1.5x the tile side) and both grids are round
@@ -444,6 +487,7 @@ def test_a_target_sitting_EXACTLY_on_the_crossover_stays_full_frame():
     the number being chosen (frontend `laneForTarget`), not by moving the
     boundary here. Reported by SurpassHR (GitHub #32)."""
     from app.services import seedvr2_helper as svr
+    monkeypatch.setattr(svr.cfg, 'get', lambda *a, **k: 'auto')
     at = dict(width=1024, height=1536, short_edge=svr.TILE_ABOVE_SHORT_EDGE)
     assert svr.TILE_ABOVE_SHORT_EDGE == 1536
     assert svr.choose_lane(**at, tiling_ok=True, ceiling_mp=BIG_CARD)['lane'] == 'full'

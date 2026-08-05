@@ -154,11 +154,30 @@ DIT_VARIANTS = (
 # Node names read from the pack's CODE (TTP_toolsets.py NODE_CLASS_MAPPINGS),
 # never its README — in this very pack `TTP_Tile_image_size` maps to a class
 # named `Tile_imageSize`, so the two do not even match.
-TTP_NODE_CLASSES = ('TTP_Image_Tile_Batch', 'TTP_Image_Assy')
+TTP_NODE_CLASSES = ('TTP_Image_Tile_Batch', 'TTP_Tile_image_size', 'TTP_Image_Assy')
 TTP_NODE_PACK = {
     'pack': 'Comfyui_TTP_Toolset',
     'url': 'https://github.com/TTPlanetPig/Comfyui_TTP_Toolset',
     'search': 'TTP Toolset',
+    'license': 'MIT',
+}
+
+# The other two packs the FULL port of SeedVR2.json needs. Both MIT — the
+# original graph's arithmetic (normalising pixel counts, dividing by 1024 to
+# count tiles) ran on comfyui_essentials' SimpleMath+ and masquerade's
+# 'Get Image Size'; the full port restores that exact path so the reference
+# behaviour (×2 → cut → ×0.25 → model) is preserved bit for bit.
+TILED_EXTRA_CLASSES = ('Get Image Size', 'SimpleMath+')
+MASQUERADE_PACK = {
+    'pack': 'masquerade-nodes-comfyui',
+    'url': 'https://github.com/Sudosys/masquerade-nodes-comfyui',
+    'search': 'Masquerade',
+    'license': 'MIT',
+}
+ESSENTIALS_PACK = {
+    'pack': 'ComfyUI-Essentials',
+    'url': 'https://github.com/cubiq/ComfyUI_essentials',
+    'search': 'Essentials',
     'license': 'MIT',
 }
 
@@ -515,12 +534,14 @@ def seedvr2_missing_nodes():
 
 
 def ttp_missing_nodes():
-    """[class_type] of the TTP tiling nodes this ComfyUI does not expose.
+    """[class_type] of the tiled-lane nodes this ComfyUI does not expose.
 
-    Same contract as seedvr2_missing_nodes and for the same reasons — success
-    cached, misses never, FAIL-OPEN on an unreachable ComfyUI. One difference
-    that matters: an absent TTP pack is NOT an error. The high-resolution lane
-    is optional; without it the default lane still works, it is only capped."""
+    Covers the TTP pack's three classes PLUS the two MIT packs the full port of
+    SeedVR2.json needs ('Get Image Size' from masquerade, 'SimpleMath+' from
+    ComfyUI-Essentials). Same contract as seedvr2_missing_nodes — success
+    cached, misses never, FAIL-OPEN on an unreachable ComfyUI. An absent pack
+    is NOT an error: the high-resolution lane is optional; without it the
+    default lane still works, it is only capped."""
     global _ttp_ok_until
     if time.time() < _ttp_ok_until:
         return []
@@ -528,15 +549,30 @@ def ttp_missing_nodes():
     available = fetch_object_info_classes()
     if available is None:
         return []
-    out = sorted(c for c in TTP_NODE_CLASSES if c not in available)
+    needed = TTP_NODE_CLASSES + TILED_EXTRA_CLASSES
+    out = sorted(c for c in needed if c not in available)
     if not out:
         _ttp_ok_until = time.time() + _NODES_OK_TTL_S
     return out
 
 
+def tiled_missing_node_hints(nodes):
+    """[{class_type, pack, url, search}] for each missing tiled-lane node — the
+    same shape the preflight banner renders, split across the three packs."""
+    hints = []
+    for ct in nodes or []:
+        if ct in TTP_NODE_CLASSES:
+            hints.append({'class_type': ct, **TTP_NODE_PACK})
+        elif ct in TILED_EXTRA_CLASSES:
+            # 'Get Image Size' is Masquerade's, 'SimpleMath+' Essentials'.
+            pack = MASQUERADE_PACK if ct == 'Get Image Size' else ESSENTIALS_PACK
+            hints.append({'class_type': ct, **pack})
+    return hints
+
+
 def tiling_available(comfy_ok=True):
     """Can the high-resolution lane run here? Requires a reachable ComfyUI (the
-    probe cannot fail open into a promise) AND both TTP classes."""
+    probe cannot fail open into a promise) AND all tiled-lane classes."""
     return bool(comfy_ok) and not ttp_missing_nodes()
 
 
@@ -714,7 +750,7 @@ def color_correction():
     fall back to the node's own default rather than being passed through — a
     typo in config must not reach ComfyUI as an invalid enum."""
     v = str(cfg.get('seedvr2.color_correction') or '').strip().lower()
-    return v if v in COLOR_CORRECTIONS else 'lab'
+    return v if v in COLOR_CORRECTIONS else 'wavelet'
 
 
 def blocks_to_swap():
@@ -750,7 +786,8 @@ def _vae_loader(vae, tiled, tile_px=TILE_PX):
     side = max(64, int(tile_px))
     inputs = {'model': vae, 'device': 'cuda:0',
               'offload_device': 'cpu', 'cache_model': False,
-              'encode_tiled': bool(tiled), 'decode_tiled': bool(tiled)}
+              'encode_tiled': bool(tiled), 'decode_tiled': bool(tiled),
+              'tile_debug': 'false'}
     if tiled:
         overlap = max(8, side // 8)
         inputs.update({'encode_tile_size': side, 'encode_tile_overlap': overlap,
@@ -760,8 +797,9 @@ def _vae_loader(vae, tiled, tile_px=TILE_PX):
 
 
 def build_workflow(source_image, *, dit, vae, seed, resolution=1080,
-                   max_res=0, color_correct='lab', swap_blocks=0,
+                   max_res=0, color_correct='wavelet', swap_blocks=0,
                    tiled_vae=False, vae_tile_px=TILE_PX,
+                   uniform_batch_size=False,
                    filename_prefix='seedvr2_upscale'):
     """The ComfyUI API-format graph. Pure function of its arguments — no config
     read, no disk access — so a test can assert the exact wiring without a
@@ -782,11 +820,11 @@ def build_workflow(source_image, *, dit, vae, seed, resolution=1080,
               'inputs': {'image': ['3', 0], 'dit': ['1', 0], 'vae': ['2', 0],
                          'seed': int(seed), 'resolution': int(resolution),
                          'max_resolution': int(max_res), 'batch_size': 1,
-                         'uniform_batch_size': False, 'temporal_overlap': 0,
-                         'prepend_frames': 0,
+                         'uniform_batch_size': bool(uniform_batch_size),
+                         'temporal_overlap': 0, 'prepend_frames': 0,
                          'color_correction': color_correct,
                          'input_noise_scale': 0.0, 'latent_noise_scale': 0.0,
-                         'offload_device': 'cpu', 'enable_debug': False},
+                         'offload_device': 'none', 'enable_debug': False},
               '_meta': {'title': 'SeedVR2 upscale'}},
         '5': {'class_type': 'SaveImage',
               'inputs': {'filename_prefix': filename_prefix, 'images': ['4', 0]}},
@@ -794,68 +832,91 @@ def build_workflow(source_image, *, dit, vae, seed, resolution=1080,
 
 
 def build_tiled_workflow(source_image, *, dit, vae, seed, plan,
-                         resolution=1080, color_correct='lab', swap_blocks=0,
-                         padding=64, filename_prefix='seedvr2_upscale'):
+                         resolution=1080, max_res=0, color_correct='wavelet',
+                         swap_blocks=0, padding=64,
+                         uniform_batch_size=False,
+                         input_noise_scale=0.0, latent_noise_scale=0.0,
+                         enable_debug=False,
+                         filename_prefix='seedvr2_upscale'):
     """The HIGH-RESOLUTION graph: cut the source into overlapping tiles, upscale
-    each, blend them back. Pure, like its full-frame sibling.
+    each, blend them back.
 
-    PORTED FROM SurpassHR's fork (GitHub #32) — and deliberately NOT identical
-    to it, so here is the difference in one place rather than in a chat log. His
-    graph chains three node packs: TTP for the tiling, plus ComfyUI_essentials
-    (MIT) and ComfyUI-Easy-Use (GPL-3.0) for arithmetic — normalising a pixel
-    count, dividing by 1024 to count tiles, resizing at the end. This repo is MIT
-    and has refused a dependency over its licence before, and that arithmetic
-    does not need to run inside a graph, so `tile_plan` does it in Python and
-    hands the result in as `plan`. Net effect: one node pack instead of three,
-    MIT instead of GPL-3.0, two classes to probe instead of six, and geometry
-    that a test can check without a ComfyUI at all.
+    FULL PORT OF the canonical SeedVR2.json workflow (COMMON). Unlike the
+    earlier reduction, the tiling geometry now runs IN the graph the way the
+    original does, because that is what reaches the reference behaviour:
+    load → ×2 upscale → read size → count tiles (width/1024, height/1024) →
+    cut → ×0.25 downscale into the model → resize back → assemble.
 
-    The upscaler runs on the tile BATCH: `TTP_Image_Tile_Batch` emits every tile
-    as one image batch, so a single SeedVR2 pass covers them all and never holds
-    more than one tile's worth of activations. `batch_size` stays 1 for the same
-    reason it does full-frame — it is a temporal window, and tiles of one still
-    image are not frames of a video.
-
-    `resolution` is the SHORT EDGE OF A TILE, not of the picture: each tile is
-    already `plan['tile_width']` px of source, and asking for the frame's target
-    here would upscale every tile to the whole frame's size."""
+    The three arithmetic/geometry packs the original chains are all LICENSE-CLEAN
+    for this MIT repo: comfyui_essentials (MIT) for SimpleMath+, masquerade
+    (MIT) for the 'Get Image Size' node, and TTP (MIT) for the tiling itself."""
     return {
         '1': _dit_loader(dit, swap_blocks),
-        # The VAE tiles at the SAME side as the picture: the plan's tile is what
-        # a pass actually holds, so a second, different size here would undo the
-        # memory decision the user made in Settings.
         '2': _vae_loader(vae, True, plan['tile_width']),
         '3': {'class_type': 'LoadImage', 'inputs': {'image': source_image}},
-        # Scale the SOURCE to the target frame size first, then cut: tiling a
-        # small image and enlarging each tile would ask the model to invent the
-        # same detail with less context each time.
-        '4': {'class_type': 'ImageScale',
+        # ×2 lanczos upscale — the canonical workflow's first step.
+        '4': {'class_type': 'ImageScaleBy',
               'inputs': {'image': ['3', 0], 'upscale_method': 'lanczos',
-                         'width': int(plan['output_width']),
-                         'height': int(plan['output_height']), 'crop': 'disabled'},
-              '_meta': {'title': 'Target frame size'}},
-        '5': {'class_type': 'TTP_Image_Tile_Batch',
+                         'scale_by': 2.0},
+              '_meta': {'title': 'Upscale source ×2'}},
+        # Get Image Size (masquerade) — reads dimensions of the ×2 image.
+        '5': {'class_type': 'Get Image Size',
+              'inputs': {'image': ['4', 0]},
+              '_meta': {'title': 'Source size'}},
+        # Count rows/columns of 1024px tiles (width/1024, height/1024).
+        '6': {'class_type': 'SimpleMath+',
+              'inputs': {'a': ['5', 0], 'value': 'a/1024'}},
+        '7': {'class_type': 'SimpleMath+',
+              'inputs': {'a': ['5', 1], 'value': 'a/1024'}},
+        # TTP_Tile_image_size — width_factor / height_factor 3,4 and 0.1 overlap.
+        '8': {'class_type': 'TTP_Tile_image_size',
               'inputs': {'image': ['4', 0],
-                         'tile_width': int(plan['tile_width']),
-                         'tile_height': int(plan['tile_height'])},
+                         'width_factor': ['6', 0], 'height_factor': ['7', 0],
+                         'overlap_rate': 0.1}},
+        # Tile the ×2 image.
+        '9': {'class_type': 'TTP_Image_Tile_Batch',
+              'inputs': {'image': ['4', 0],
+                         'tile_width': ['8', 0], 'tile_height': ['8', 1]},
               '_meta': {'title': f"Cut into {plan['tiles']} tiles"}},
-        '6': {'class_type': 'SeedVR2VideoUpscaler',
-              'inputs': {'image': ['5', 0], 'dit': ['1', 0], 'vae': ['2', 0],
-                         'seed': int(seed), 'resolution': int(resolution),
-                         'max_resolution': 0, 'batch_size': 1,
-                         'uniform_batch_size': False, 'temporal_overlap': 0,
-                         'prepend_frames': 0,
-                         'color_correction': color_correct,
-                         'input_noise_scale': 0.0, 'latent_noise_scale': 0.0,
-                         'offload_device': 'cpu', 'enable_debug': False},
-              '_meta': {'title': 'SeedVR2 upscale (per tile)'}},
-        '7': {'class_type': 'TTP_Image_Assy',
-              'inputs': {'tiles': ['6', 0], 'positions': ['5', 1],
-                         'original_size': ['5', 2], 'grid_size': ['5', 3],
-                         'padding': int(padding)},
-              '_meta': {'title': 'Blend the seams back together'}},
-        '8': {'class_type': 'SaveImage',
-              'inputs': {'filename_prefix': filename_prefix, 'images': ['7', 0]}},
+        # ×0.25 downscale into the model (matches the reference 260x246 input).
+        '10': {'class_type': 'ImageScaleBy',
+               'inputs': {'image': ['9', 0], 'upscale_method': 'lanczos',
+                          'scale_by': 0.25},
+               '_meta': {'title': 'Shrink tiles for model input'}},
+        # SeedVR2 on the shrunken tile batch.
+        '11': {'class_type': 'SeedVR2VideoUpscaler',
+               'inputs': {'image': ['10', 0], 'dit': ['1', 0], 'vae': ['2', 0],
+                          'seed': int(seed), 'resolution': int(resolution),
+                          'max_resolution': int(max_res), 'batch_size': 1,
+                          'uniform_batch_size': bool(uniform_batch_size),
+                          'temporal_overlap': 0, 'prepend_frames': 0,
+                          'color_correction': color_correct,
+                          'input_noise_scale': float(input_noise_scale),
+                          'latent_noise_scale': float(latent_noise_scale),
+                          'offload_device': 'none',
+                          'enable_debug': bool(enable_debug)},
+               '_meta': {'title': 'SeedVR2 upscale (per tile)'}},
+        # GetImageSize (comfy core) reads ORIGINAL tile dimensions for resize.
+        '12': {'class_type': 'GetImageSize',
+               'inputs': {'image': ['9', 0]},
+               '_meta': {'title': 'Original tile size'}},
+        # Resize upscaled tiles back to original tile dimensions.
+        '13': {'class_type': 'ResizeImageMaskNode',
+               'inputs': {'input': ['11', 0],
+                          'resize_type': 'scale dimensions',
+                          'resize_type.width': ['12', 0],
+                          'resize_type.height': ['12', 1],
+                          'resize_type.crop': 'disabled',
+                          'scale_method': 'lanczos'},
+               '_meta': {'title': 'Align tiles to original size'}},
+        # Assemble with the tiler's positions/original_size/grid.
+        '14': {'class_type': 'TTP_Image_Assy',
+               'inputs': {'tiles': ['13', 0], 'positions': ['9', 1],
+                          'original_size': ['9', 2], 'grid_size': ['9', 3],
+                          'padding': int(padding)},
+               '_meta': {'title': 'Blend seams back together'}},
+        '15': {'class_type': 'SaveImage',
+               'inputs': {'filename_prefix': filename_prefix, 'images': ['14', 0]}},
     }
 
 

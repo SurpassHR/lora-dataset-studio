@@ -530,7 +530,7 @@ DEFAULTS = {
         # node's default and the most conservative; 'wavelet' preserves broad
         # tone better on heavily degraded sources. Colour fidelity is the whole
         # reason this engine exists, so this is deliberately exposed.
-        'color_correction': 'lab',
+        'color_correction': 'wavelet',
         # How the high-resolution (tiled) lane is chosen, when the TTP node pack
         # is installed. 'auto' (default) tiles when tiling helps — past the size
         # the model is comfortable at, or when the frame would not fit. Tiling

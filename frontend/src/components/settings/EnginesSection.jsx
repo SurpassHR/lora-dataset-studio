@@ -361,7 +361,7 @@ const SEEDVR2_TILE_MIN = 512
 const SEEDVR2_TILE_MAX = 2048
 const SEEDVR2_TILE_ABOVE_FACTOR = 1.5
 // seedvr2_helper.COLOR_CORRECTIONS — the node's own enum, in its own order.
-const SEEDVR2_COLOR_MODES = ['lab', 'wavelet', 'wavelet_adaptive', 'hsv', 'adain', 'none']
+const SEEDVR2_COLOR_MODES = ['wavelet', 'lab', 'wavelet_adaptive', 'hsv', 'adain', 'none']
 
 function KreaCard({ config, setField, configDefaults }) {
   const krea = config.krea || {}
